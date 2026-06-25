@@ -1,0 +1,926 @@
+/*
+ _    _                              _        _             _
+| |_ | |  __ _  _   _   ___   _   _ | |_   __| |  ___  ___ (_)  __ _  _ __    ___  _ __
+| __|| | / _` || | | | / _ \ | | | || __| / _` | / _ \/ __|| | / _` || '_ \  / _ \| '__|
+| |_ | || (_| || |_| || (_) || |_| || |_ | (_| ||  __/\__ \| || (_| || | | ||  __/| |
+ \__||_| \__,_| \__, | \___/  \__,_| \__| \__,_| \___||___/|_| \__, ||_| |_| \___||_|
+                |___/                                          |___/
+TLayoutDesigner
+------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------------------------
+{Protheus.doc} TLayoutDesigner
+
+    @type   Class
+    @author Marinaldo de Jesus
+    @since  18/06/2026
+
+    classe auxiliar generica para desenho de apoio em layouts de relatorios.
+
+    Objetivo:
+   -Desenhar grade e regua sobre PDF/relatorio.
+   -Marcar areas de impressao com coordenadas em unidade interna e milimetros.
+   -Converter coordenadas entre milimetros e unidade interna do FWMsPrinter/TReport.
+   -Registrar marcacoes para exportacao em texto/JSON.
+
+    Observacoes:
+   -A unidade interna do FWMsPrinter nao deve ser assumida como milimetro real.
+   -Calibre a escala com SetScaleXY() informando as dimensoes reais da area impressa.
+   -Use esta classe como ferramenta de diagnostico/configuracao de layout.
+
+    Exemplo:
+
+        oDesign:=TLayoutDesigner():New(oPrint)
+        oDesign:SetScaleXY(nLarImg,nLarMm,nAltImg,nAltMm)
+        oDesign:SetOrigin(nTopArea,nLeftArea)
+        oDesign:SetInfoMode("BOTH")
+
+        oDesign:GridMm(5,nAltImg,nLarImg)
+        oDesign:Mark("AREA_UTIL",0,0,nLarImg,nAltImg)
+        oDesign:MarkMm("LOTE",80,25,40,5)
+
+        aPos:=oDesign:CoordMmToPx(80,25)
+        oPrint:Say(aPos[1],aPos[2],cLote,oFont)
+*/
+
+#include "totvs.ch"
+#include "parmtype.ch"
+
+class TLayoutDesigner
+
+    public data aItems as array
+
+    public data cInfoMode as character
+
+    public data lShowGridText as logical
+    public data lShowMarkInfo as logical
+    public data lHighlightGrid as logical
+
+    public data nPxPerMM as numeric
+    public data nPxPerMMX as numeric
+    public data nPxPerMMY as numeric
+
+    public data nOriginRow as numeric
+    public data nOriginCol as numeric
+
+    public data nColorGrid as numeric
+    public data nColorGridBack as numeric
+
+    public data nColorBox as numeric
+    public data nColorText as numeric
+    public data nColorPoint as numeric
+
+    public data nTextOffset
+    public data nTextLineHeight
+    public data nRulerTextStep
+    public data nRulerTickSize
+
+    public data oFont as object
+    public data oPrint as object
+
+    public method New(oPrint as object,nPxPerMM as numeric) as object
+
+    public method SetScale(nUnit as numeric,nMM as numeric) as object
+    public method SetScaleX(nUnit as numeric,nMM as numeric) as object
+    public method SetScaleY(nUnit as numeric,nMM as numeric) as object
+    public method SetScaleXY(nUnitX as numeric,nMMX as numeric,nUnitY as numeric,nMMY as numeric) as object
+    public method SetPxPerMM(nPxPerMM as numeric) as object
+
+    public method SetOrigin(nRow as numeric,nCol as numeric) as object
+    public method ResetOrigin() as object
+    public method ApplyOrigin(nRow as numeric,nCol as numeric) as array
+
+    public method SetFont(xFont as variant,nSize as numeric,lBold as logical) as object
+    public method SetColors(nGrid as numeric,nBox as numeric,nText as numeric,nPoint as numeric) as object
+    public method SetGridHighlight(lShow as logical,nColorBack as numeric) as object
+    public method ShowGridText(lShow as logical) as object
+    public method ShowMarkInfo(lShow as logical) as object
+    public method SetInfoMode(cMode as character) as object
+    public method SetRulerTextStep(nEvery as numeric) as object
+    public method SetRulerTickSize(nSize as numeric) as object
+
+    public method MmToPx(nMM as numeric) as numeric
+    public method PxToMm(nPx as numeric) as numeric
+    public method MmToPxX(nMM as numeric) as numeric
+    public method MmToPxY(nMM as numeric) as numeric
+    public method PxToMmX(nPx as numeric) as numeric
+    public method PxToMmY(nPx as numeric) as numeric
+    public method CoordMmToPx(nYmm as numeric,nXmm as numeric) as array
+    public method CoordPxToMm(nRow as numeric,nCol as numeric) as array
+    public method SizeMmToPx(nWmm as numeric,nHmm as numeric) as array
+
+    public method Grid(nStep as numeric,nHeight as numeric,nWidth as numeric) as object
+    public method GridMm(nStepMM as numeric,nHeight as numeric,nWidth as numeric) as object
+    public method Ruler(nStep as numeric,nHeight as numeric,nWidth as numeric) as object
+    public method RulerMm(nStepMM as numeric,nHeight as numeric,nWidth as numeric) as object
+
+    public method Mark(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as object
+    public method MarkMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric) as object
+    public method Box(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as object
+    public method BoxMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric) as object
+
+    public method Point(cName as character,nRow as numeric,nCol as numeric) as object
+    public method PointMm(cName as character,nYmm as numeric,nXmm as numeric) as object
+
+    public method Text(cText as character,nRow as numeric,nCol as numeric) as object
+    public method TextMm(cText as character,nYmm as numeric,nXmm as numeric) as object
+
+    public method AddItem(cType as character,cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as json
+    public method GetItems() as array
+    public method ClearItems() as object
+    public method ExportJson() as character
+    public method ExportText() as character
+
+    public method DrawLine(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
+    public method DrawBox(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
+    public method DrawText(nRow as numeric,nCol as numeric,cText as character,oFont as object,nColor as numeric) as object
+    public method DrawGuideLine(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
+    public method DrawGuideText(nRow as numeric,nCol as numeric,cText as character,oFont as object,nColor as numeric) as object
+
+    public method Info(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as character
+    public method InfoLines(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as array
+    public method FmtNum(nValue as numeric,nDec as numeric) as character
+    public method IsTextStep(nIndex as numeric) as logical
+
+Endclass
+
+method New(oPrint,nPxPerMM) class TLayoutDesigner
+
+    paramtype 1 var oPrint as object class FWMSPRINTER,TREPORT
+    paramtype 2 var nPxPerMM as numeric optional default 1
+
+    ::oPrint:=oPrint
+
+    ::nPxPerMM:=1
+    ::nPxPerMMX:=1
+    ::nPxPerMMY:=1
+    ::SetPxPerMM(nPxPerMM)
+
+    ::nOriginRow:=0
+    ::nOriginCol:=0
+
+    ::nColorGrid:=RGB(210,210,210)
+    ::nColorGridBack:=RGB(255,255,255)
+    ::nColorBox:=RGB(255,0,0)
+    ::nColorText:=RGB(0,0,0)
+    ::nColorPoint:=RGB(0,80,255)
+
+    ::lHighlightGrid:=.T.
+    ::lShowGridText:=.T.
+    ::lShowMarkInfo:=.T.
+
+    ::cInfoMode:="BOTH"
+    ::nTextOffset:=2
+    ::nTextLineHeight:=8
+    ::nRulerTextStep:=5
+    ::nRulerTickSize:=5
+
+    ::aItems:=Array(0)
+
+    //https://tdn.totvs.com/display/tec/TFont
+    ::oFont:=TFont():New("Arial",nil,6,nil,.T.,nil,nil,nil,.T.,.F.)
+
+return(self)
+
+method SetScale(nUnit,nMM) class TLayoutDesigner
+
+    paramtype 1 var nUnit as numeric optional default 0
+    paramtype 2 var nMM as numeric optional default 0
+
+    if (nMM>0)
+        ::nPxPerMM:=nUnit/nMM
+        ::nPxPerMMX:=::nPxPerMM
+        ::nPxPerMMY:=::nPxPerMM
+    endif
+
+return(self)
+
+method SetScaleX(nUnit,nMM) class TLayoutDesigner
+
+    paramtype 1 var nUnit as numeric optional default 0
+    paramtype 2 var nMM as numeric optional default 0
+
+    if (nMM>0)
+        ::nPxPerMMX:=nUnit/nMM
+    endif
+
+return(self)
+
+method SetScaleY(nUnit,nMM) class TLayoutDesigner
+
+    paramtype 1 var nUnit as numeric optional default 0
+    paramtype 2 var nMM as numeric optional default 0
+
+    if (nMM>0)
+        ::nPxPerMMY:=nUnit/nMM
+    endif
+
+return(self)
+
+method SetScaleXY(nUnitX,nMMX,nUnitY,nMMY) class TLayoutDesigner
+
+    ::SetScaleX(nUnitX,nMMX)
+    ::SetScaleY(nUnitY,nMMY)
+
+return(self)
+
+method SetPxPerMM(nPxPerMM) class TLayoutDesigner
+
+    paramtype 1 var nPxPerMM as numeric optional default 0
+
+    if (nPxPerMM>0)
+        ::nPxPerMM:=nPxPerMM
+        ::nPxPerMMX:=nPxPerMM
+        ::nPxPerMMY:=nPxPerMM
+    endif
+
+return(self)
+
+method SetOrigin(nRow,nCol) class TLayoutDesigner
+
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+
+    ::nOriginRow:=nRow
+    ::nOriginCol:=nCol
+
+return(self)
+
+method ResetOrigin() class TLayoutDesigner
+return(::SetOrigin(0,0))
+
+method ApplyOrigin(nRow,nCol) class TLayoutDesigner
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+return({nRow+::nOriginRow,nCol+::nOriginCol})
+
+method SetFont(xFont,nSize,lBold) class TLayoutDesigner
+
+    paramtype 1 var xFont as character,object optional default "Arial"
+    paramtype 2 var nSize as numeric optional default 6
+    paramtype 3 var lBold as logical optional default .T.
+
+    if (ValType(xFont)=="O")
+        ::oFont:=xFont
+    elseif (ValType(xFont)=="C")
+        //https://tdn.totvs.com/display/tec/TFont
+        ::oFont:=TFont():New(xFont,nil,nSize,nil,lBold,nil,nil,nil,.T.,.F.)
+    endif
+
+return(self)
+
+method SetColors(nGrid,nBox,nText,nPoint) class TLayoutDesigner
+
+    paramtype 1 var nGrid as numeric optional default ::nColorGrid
+    paramtype 2 var nBox as numeric optional default ::nColorBox
+    paramtype 3 var nText as numeric optional default ::nColorText
+    paramtype 4 var nPoint as numeric optional default ::nColorPoint
+
+    ::nColorGrid:=nGrid
+    ::nColorBox:=nBox
+    ::nColorText:=nText
+    ::nColorPoint:=nPoint
+
+return(self)
+
+method SetGridHighlight(lShow,nColorBack) class TLayoutDesigner
+
+    paramtype 1 var lShow as logical optional default .T.
+    paramtype 2 var nColorBack as numeric optional default ::nColorGridBack
+
+    ::lHighlightGrid:=lShow
+    ::nColorGridBack:=nColorBack
+
+return(self)
+
+method ShowGridText(lShow) class TLayoutDesigner
+    paramtype 1 var lShow as logical optional default .T.
+    ::lShowGridText:=lShow
+return(self)
+
+method ShowMarkInfo(lShow) class TLayoutDesigner
+    paramtype 1 var lShow as logical optional default .T.
+    ::lShowMarkInfo:=lShow
+return(self)
+
+method SetInfoMode(cMode) class TLayoutDesigner
+
+    paramtype 1 var cMode as character optional default "BOTH"
+
+    cMode:=Upper(AllTrim(cMode))
+
+    if ((cMode=="BOTH").or.(cMode=="PX").or.(cMode=="MM"))
+        ::cInfoMode:=cMode
+    endif
+
+return(self)
+
+method SetRulerTextStep(nEvery) class TLayoutDesigner
+
+    paramtype 1 var nEvery as numeric optional default 0
+
+    if (nEvery>0)
+        ::nRulerTextStep:=nEvery
+    endif
+
+return(self)
+
+method SetRulerTickSize(nSize) class TLayoutDesigner
+
+    paramtype 1 var nSize as numeric optional default 0
+
+    if (nSize>0)
+        ::nRulerTickSize:=nSize
+    endif
+
+return(self)
+
+method MmToPx(nMM) class TLayoutDesigner
+return(::MmToPxX(nMM))
+
+method PxToMm(nPx) class TLayoutDesigner
+return(::PxToMmX(nPx))
+
+method MmToPxX(nMM) class TLayoutDesigner
+
+    paramtype 1 var nMM as numeric optional default 0
+
+    if (::nPxPerMMX<=0)
+        return(0)
+    endif
+
+return(Round(nMM*::nPxPerMMX,0))
+
+method MmToPxY(nMM) class TLayoutDesigner
+
+    paramtype 1 var nMM as numeric optional default 0
+
+    if (::nPxPerMMY<=0)
+        return(0)
+    endif
+
+return(Round(nMM*::nPxPerMMY,0))
+
+method PxToMmX(nPx) class TLayoutDesigner
+
+    paramtype 1 var nPx as numeric optional default 0
+
+    if (::nPxPerMMX<=0)
+        return(0)
+    endif
+
+return(Round(nPx/::nPxPerMMX,2))
+
+method PxToMmY(nPx) class TLayoutDesigner
+
+    paramtype 1 var nPx as numeric optional default 0
+
+    if (::nPxPerMMY<=0)
+        return(0)
+    endif
+
+return(Round(nPx/::nPxPerMMY,2))
+
+method CoordMmToPx(nYmm,nXmm) class TLayoutDesigner
+    local nRow:=::MmToPxY(nYmm) as numeric
+    local nCol:=::MmToPxX(nXmm) as numeric
+return(::ApplyOrigin(nRow,nCol))
+
+method CoordPxToMm(nRow,nCol) class TLayoutDesigner
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+return({;
+     ::PxToMmY(nRow-::nOriginRow);
+    ,::PxToMmX(nCol-::nOriginCol);
+})
+
+method SizeMmToPx(nWmm,nHmm) class TLayoutDesigner
+return({::MmToPxX(nWmm),::MmToPxY(nHmm)})
+
+method Grid(nStep,nHeight,nWidth) class TLayoutDesigner
+
+    local nPos:=0 as numeric
+    local nIndex:=0 as numeric
+
+    paramtype 1 var nStep as numeric optional default 10
+    paramtype 2 var nHeight as numeric optional default 0
+    paramtype 3 var nWidth as numeric optional default 0
+
+    if (nStep<=0)
+        nStep:=10
+    endif
+
+    nIndex:=0
+    for nPos:=0 to nHeight Step nStep
+        ::DrawGuideLine(nPos,0,nPos,nWidth,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nPos+1,1,::FmtNum(nPos)+"px",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+    nIndex:=0
+    for nPos:=0 to nWidth Step nStep
+        ::DrawGuideLine(0,nPos,nHeight,nPos,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(1,nPos+1,::FmtNum(nPos)+"px",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+return(self)
+
+method GridMm(nStepMM,nHeight,nWidth) class TLayoutDesigner
+
+    local nPos:=0 as numeric
+    local nIndex:=0 as numeric
+    local nStepX:=0 as numeric
+    local nStepY:=0 as numeric
+
+    paramtype 1 var nStepMM as numeric optional default 5
+    paramtype 2 var nHeight as numeric optional default 0
+    paramtype 3 var nWidth as numeric optional default 0
+
+    nStepX:=::MmToPxX(nStepMM)
+    nStepY:=::MmToPxY(nStepMM)
+
+    if (nStepX<=0)
+        nStepX:=10
+    endif
+
+    if (nStepY<=0)
+        nStepY:=10
+    endif
+
+    nIndex:=0
+    for nPos:=0 to nHeight Step nStepY
+        ::DrawGuideLine(nPos,0,nPos,nWidth,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nPos+1,1,::FmtNum(::PxToMmY(nPos))+"mm",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+    nIndex:=0
+    for nPos:=0 to nWidth Step nStepX
+        ::DrawGuideLine(0,nPos,nHeight,nPos,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(1,nPos+1,::FmtNum(::PxToMmX(nPos))+"mm",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+return(self)
+
+method Ruler(nStep,nHeight,nWidth) class TLayoutDesigner
+
+    local nPos:=0
+    local nTick:=::nRulerTickSize
+    local nIndex:=0
+
+    paramtype 1 var nStep as numeric optional default 10
+    paramtype 2 var nHeight as numeric optional default 0
+    paramtype 3 var nWidth as numeric optional default 0
+
+    if (nStep<=0)
+        nStep:=10
+    endif
+
+    for nPos:=0 to nWidth Step nStep
+        ::DrawGuideLine(0,nPos,nTick,nPos,::nColorGrid)
+        ::DrawGuideLine(nHeight-nTick,nPos,nHeight,nPos,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nTick+1,nPos+1,::FmtNum(nPos)+"px",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+    nIndex:=0
+    for nPos:=0 to nHeight Step nStep
+        ::DrawGuideLine(nPos,0,nPos,nTick,::nColorGrid)
+        ::DrawGuideLine(nPos,nWidth-nTick,nPos,nWidth,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nPos+1,nTick+1,::FmtNum(nPos)+"px",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+return(self)
+
+method RulerMm(nStepMM,nHeight,nWidth) class TLayoutDesigner
+
+    local nPos:=0 as numeric
+    local nTick:=::nRulerTickSize as numeric
+    local nIndex:=0 as numeric
+    local nStepX:=0 as numeric
+    local nStepY:=0 as numeric
+
+    paramtype 1 var nStepMM as numeric optional default 5
+    paramtype 1 var nHeight as numeric optional default 0
+    paramtype 1 var nWidth as numeric optional default 0
+
+    nStepX:=::MmToPxX(nStepMM)
+    nStepY:=::MmToPxY(nStepMM)
+
+    if (nStepX<=0)
+        nStepX:=10
+    endif
+
+    if (nStepY<=0)
+        nStepY:=10
+    endif
+
+    for nPos:=0 to nWidth Step nStepX
+        ::DrawGuideLine(0,nPos,nTick,nPos,::nColorGrid)
+        ::DrawGuideLine(nHeight-nTick,nPos,nHeight,nPos,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nTick+1,nPos+1,::FmtNum(::PxToMmX(nPos))+"mm",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+    nIndex:=0
+    for nPos:=0 to nHeight Step nStepY
+        ::DrawGuideLine(nPos,0,nPos,nTick,::nColorGrid)
+        ::DrawGuideLine(nPos,nWidth-nTick,nPos,nWidth,::nColorGrid)
+        if ((::lShowGridText).and.(::IsTextStep(nIndex)))
+            ::DrawGuideText(nPos+1,nTick+1,::FmtNum(::PxToMmY(nPos))+"mm",::oFont,::nColorGrid)
+        endif
+        nIndex++
+    next nPos
+
+return(self)
+
+method Mark(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+
+    local aInfo as array
+
+    local nLine as numeric
+
+    paramtype 1 var cName as character optional default "AREA"
+    paramtype 2 var nRow as numeric optional default 0
+    paramtype 3 var nCol as numeric optional default 0
+    paramtype 4 var nWidth as numeric optional default 40
+    paramtype 5 var nHeight as numeric optional default 10
+
+    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,::nColorBox)
+    ::AddItem("MARK",cName,nRow,nCol,nWidth,nHeight)
+
+    if (::lShowMarkInfo)
+        aInfo:=::InfoLines(cName,nRow,nCol,nWidth,nHeight)
+        for nLine:=1 to Len(aInfo)
+            ::DrawText(;
+                 nRow+nHeight+::nTextOffset+((nLine-1)*::nTextLineHeight);
+                ,nCol;
+                ,aInfo[nLine],::oFont,::nColorText;
+            )
+        next nLine
+        FWFreeArray(@aInfo)
+    endif
+
+return(self)
+
+method MarkMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
+    paramtype 1 var cName as character optional default "AREA"
+    paramtype 2 var nYmm as numeric optional default 0
+    paramtype 3 var nXmm as numeric optional default 0
+    paramtype 4 var nWmm as numeric optional default 40
+    paramtype 5 var nHmm as numeric optional default 10
+return(::Mark(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm)))
+
+method Box(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+
+    paramtype 1 var cName as character optional default "BOX"
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 1 var nCol as numeric optional default 0
+    paramtype 1 var nWidth as numeric optional default 40
+    paramtype 1 var nHeight as numeric optional default 10
+
+    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,::nColorBox)
+    ::AddItem("BOX",cName,nRow,nCol,nWidth,nHeight)
+
+return(self)
+
+method BoxMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
+    paramtype 1 var cName as character optional default "BOX"
+    paramtype 1 var nYmm as numeric optional default 0
+    paramtype 1 var nXmm as numeric optional default 0
+    paramtype 1 var nWmm as numeric optional default 40
+    paramtype 1 var nHmm as numeric optional default 10
+return(::Box(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm)))
+
+method Point(cName,nRow,nCol) class TLayoutDesigner
+
+    local aInfo as array
+    local nLine as numeric
+
+    paramtype 1 var cName as numeric optional default "PONTO"
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 1 var nCol as numeric optional default 0
+
+    ::DrawLine(nRow-3,nCol,nRow+3,nCol,::nColorPoint)
+    ::DrawLine(nRow,nCol-3,nRow,nCol+3,::nColorPoint)
+    ::AddItem("POINT",cName,nRow,nCol,0,0)
+
+    if (::lShowMarkInfo)
+        aInfo:=::InfoLines(cName,nRow,nCol,0,0)
+        for nLine:=1 to Len(aInfo)
+            ::DrawText(;
+                 nRow+4+((nLine-1)*::nTextLineHeight);
+                ,nCol+4;
+                ,aInfo[nLine],::oFont,::nColorText;
+            )
+        next nLine
+        FWFreeArray(@aInfo)
+    endif
+
+return(self)
+
+method PointMm(cName,nYmm,nXmm) class TLayoutDesigner
+    paramtype 1 var cName as numeric optional default "PONTO"
+    paramtype 1 var nYmm as numeric optional default 0
+    paramtype 1 var nXmm as numeric optional default 0
+return(::Point(cName,::MmToPxY(nYmm),::MmToPxX(nXmm)))
+
+method Text(cText,nRow,nCol) class TLayoutDesigner
+
+    paramtype 1 var cText as character optional default ""
+    paramtype 2 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+
+    ::DrawText(nRow,nCol,cText,::oFont,::nColorText)
+    ::AddItem("TEXT",cText,nRow,nCol,0,0)
+
+return(self)
+
+method TextMm(cText,nYmm,nXmm) class TLayoutDesigner
+    paramtype 1 var cText as character optional default ""
+    paramtype 2 var nYmm as numeric optional default 0
+    paramtype 2 var nXmm as numeric optional default 0
+return(::Text(cText,::MmToPxY(nYmm),::MmToPxX(nXmm)))
+
+method AddItem(cType,cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+
+    local jItem:=JSONObject():New() as json
+
+    paramtype 1 var cType as character optional default "ITEM"
+    paramtype 1 var cName as character optional default ""
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 1 var nCol as numeric optional default 0
+    paramtype 1 var nWidth as numeric optional default 0
+    paramtype 1 var nHeight as numeric optional default 0
+
+    if (ValType(::aItems)!="A")
+        ::aItems:=Array(0)
+    endif
+
+    jItem["name"]:=AllTrim(cName)
+    jItem["type"]:=Upper(AllTrim(cType))
+    jItem["row"]:=nRow
+    jItem["col"]:=nCol
+    jItem["width"]:=nWidth
+    jItem["height"]:=nHeight
+    jItem["xmm"]:=::PxToMmX(nCol)
+    jItem["ymm"]:=::PxToMmY(nRow)
+    jItem["wmm"]:=::PxToMmX(nWidth)
+    jItem["hmm"]:=::PxToMmY(nHeight)
+
+    aAdd(::aItems,jItem)
+
+return(jItem)
+
+method GetItems() class TLayoutDesigner
+return(::aItems)
+
+method ClearItems() class TLayoutDesigner
+
+    if (ValType(::aItems)=="A")
+        aSize(::aItems,0)
+    else
+        ::aItems:=Array(0)
+    endif
+
+return(self)
+
+method ExportJson() class TLayoutDesigner
+
+    local cKey:="" as character
+
+    local jOut:=JSONObject():New() as json
+    local jItem as json
+
+    local nItem:=0 as numeric
+
+    for nItem:=1 to Len(::aItems)
+
+        jItem:=::aItems[nItem]
+
+        if (ValType(jItem)$"JO")
+
+            cKey:=AllTrim(jItem["name"])
+
+            if (Empty(cKey))
+                cKey:=AllTrim(jItem["type"])+"_"+AllTrim(Str(nItem))
+            endif
+
+            jOut[cKey]:=JSONObject():New()
+            jOut[cKey]["type"]:=jItem["type"]
+
+            jOut[cKey]["px"]:=JSONObject():New()
+            jOut[cKey]["px"]["x"]:=jItem["col"]
+            jOut[cKey]["px"]["y"]:=jItem["row"]
+            jOut[cKey]["px"]["w"]:=jItem["width"]
+            jOut[cKey]["px"]["h"]:=jItem["height"]
+
+            jOut[cKey]["mm"]:=JSONObject():New()
+            jOut[cKey]["mm"]["x"]:=jItem["xmm"]
+            jOut[cKey]["mm"]["y"]:=jItem["ymm"]
+            jOut[cKey]["mm"]["w"]:=jItem["wmm"]
+            jOut[cKey]["mm"]["h"]:=jItem["hmm"]
+
+        endif
+
+    next nItem
+
+return(jOut:ToJSON())
+
+method ExportText() class TLayoutDesigner
+
+    local cOut:="" as character
+    local cCRLF:=CRLF as character
+
+    local jItem as json
+
+    local nItem:=0 as numeric
+
+    for nItem:=1 to Len(::aItems)
+        jItem:=::aItems[nItem]
+        if (ValType(jItem)$"JO")
+            cOut+=AllTrim(jItem["type"])+" "+AllTrim(jItem["name"])+cCRLF
+            cOut+="PX: X="+::FmtNum(jItem["col"])+;
+                  " Y="+::FmtNum(jItem["row"])+;
+                  " W="+::FmtNum(jItem["width"])+;
+                  " H="+::FmtNum(jItem["height"])+cCRLF
+            cOut+="MM: X="+::FmtNum(jItem["xmm"],2)+;
+                  " Y="+::FmtNum(jItem["ymm"],2)+;
+                  " W="+::FmtNum(jItem["wmm"],2)+;
+                  " H="+::FmtNum(jItem["hmm"],2)+cCRLF
+            cOut+=cCRLF
+        endif
+    next nItem
+
+return(cOut)
+
+method DrawLine(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
+
+    local aIni as array
+    local aFim as array
+
+    paramtype 1 var nRow1 as numeric optional default 0
+    paramtype 2 var nCol1 as numeric optional default 0
+    paramtype 3 var nRow2 as numeric optional default 0
+    paramtype 4 var nCol2 as numeric optional default 0
+    paramtype 5 var nColor as numeric optional default ::nColorBox
+
+    if (ValType(::oPrint)=="O")
+        aIni:=::ApplyOrigin(nRow1,nCol1)
+        aFim:=::ApplyOrigin(nRow2,nCol2)
+        ::oPrint:Line(aIni[1],aIni[2],aFim[1],aFim[2],nColor)
+        FWFreeArray(@aIni)
+        FWFreeArray(@aFim)
+    endif
+
+return(self)
+
+method DrawBox(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
+
+    paramtype 1 var nRow1 as numeric optional default 0
+    paramtype 2 var nCol1 as numeric optional default 0
+    paramtype 3 var nRow2 as numeric optional default 0
+    paramtype 4 var nCol2 as numeric optional default 0
+    paramtype 5 var nColor as numeric optional default ::nColorBox
+
+    ::DrawLine(nRow1,nCol1,nRow1,nCol2,nColor)
+    ::DrawLine(nRow1,nCol2,nRow2,nCol2,nColor)
+    ::DrawLine(nRow2,nCol2,nRow2,nCol1,nColor)
+    ::DrawLine(nRow2,nCol1,nRow1,nCol1,nColor)
+
+return(self)
+
+method DrawText(nRow,nCol,cText,oFont,nColor) class TLayoutDesigner
+
+    local aPos as array
+
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+    paramtype 3 var cText as character optional default ""
+    paramtype 4 var oFont as object optional default ::oFont
+    paramtype 5 var nColor as numeric optional default ::nColorText
+
+    if (ValType(::oPrint)=="O")
+        aPos:=::ApplyOrigin(nRow,nCol)
+        ::oPrint:Say(aPos[1],aPos[2],cText,oFont,nil,nColor)
+        FWFreeArray(@aPos)
+    endif
+
+return(self)
+
+method DrawGuideLine(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
+
+    paramtype 1 var nRow1 as numeric optional default 0
+    paramtype 2 var nCol1 as numeric optional default 0
+    paramtype 3 var nRow2 as numeric optional default 0
+    paramtype 4 var nCol2 as numeric optional default 0
+    paramtype 5 var nColor as numeric optional default ::nColorBox
+
+    if (::lHighlightGrid)
+        ::DrawLine(nRow1+1,nCol1+1,nRow2+1,nCol2+1,::nColorGridBack)
+    endif
+
+    ::DrawLine(nRow1,nCol1,nRow2,nCol2,nColor)
+
+return(self)
+
+method DrawGuideText(nRow,nCol,cText,oFont,nColor) class TLayoutDesigner
+
+    paramtype 1 var nRow as numeric optional default 0
+    paramtype 2 var nCol as numeric optional default 0
+    paramtype 3 var cText as character optional default ""
+    paramtype 4 var oFont as object optional default ::oFont
+    paramtype 5 var nColor as numeric optional default ::nColorGrid
+
+    if (::lHighlightGrid)
+        ::DrawText(nRow+1,nCol+1,cText,oFont,::nColorGridBack)
+    endif
+
+    ::DrawText(nRow,nCol,cText,oFont,nColor)
+
+return(self)
+
+method Info(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+
+    local aInfo as array
+    local cInfo:="" as character
+    local nLine:=0 as numeric
+
+    aInfo:=::InfoLines(cName,nRow,nCol,nWidth,nHeight)
+
+    for nLine:=1 to Len(aInfo)
+        if (nLine>1)
+            cInfo+=" | "
+        endif
+        cInfo+=aInfo[nLine]
+    next nLine
+
+    FWFreeArray(@aInfo)
+
+return(cInfo)
+
+method InfoLines(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+
+    local aInfo:=Array(0)
+
+    paramtype 1 var cName as character optional default "AREA"
+    paramtype 2 var nRow as numeric optional default 0
+    paramtype 3 var nCol as numeric optional default 0
+    paramtype 4 var nWidth as numeric optional default 0
+    paramtype 5 var nHeight as numeric optional default 0
+
+    aAdd(aInfo,AllTrim(cName))
+
+    if (::cInfoMode=="BOTH" .or. ::cInfoMode=="PX")
+        aAdd(aInfo,;
+            "PX: X="+::FmtNum(nCol)+;
+            " Y="+::FmtNum(nRow)+;
+            " W="+::FmtNum(nWidth)+;
+            " H="+::FmtNum(nHeight))
+    endif
+
+    if (::cInfoMode=="BOTH" .or. ::cInfoMode=="MM")
+        aAdd(aInfo,;
+            "MM: X="+::FmtNum(::PxToMmX(nCol),2)+;
+            " Y="+::FmtNum(::PxToMmY(nRow),2)+;
+            " W="+::FmtNum(::PxToMmX(nWidth),2)+;
+            " H="+::FmtNum(::PxToMmY(nHeight),2))
+    endif
+
+return(aInfo)
+
+method FmtNum(nValue,nDec) class TLayoutDesigner
+
+    paramtype 1 var nValue as numeric optional default 0
+    paramtype 2 var nDec as numeric optional default 0
+
+return(AllTrim(Str(nValue,18,nDec)))
+
+method IsTextStep(nIndex) class TLayoutDesigner
+
+    local nEvery:=::nRulerTextStep
+
+    paramtype 1 var nIndex as numeric optional default 0
+
+    if (nEvery<=0)
+        nEvery:=1
+    endif
+
+return(((nIndex==0).or.(Mod(nIndex,nEvery)==0)))
