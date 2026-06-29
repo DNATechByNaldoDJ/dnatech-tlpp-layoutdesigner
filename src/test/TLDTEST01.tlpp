@@ -1,0 +1,142 @@
+/*
+------------------------------------------------------------------------------------------
+{Protheus.doc} TLDTEST01
+
+    Exemplo simplificado baseado no TEST01.prw para demonstrar o uso da
+    classe TLayoutDesigner sobre um rotulo.
+
+    O caminho da imagem e propositalmente ficticio. Se o arquivo existir, o
+    exemplo usa SayBitmap(); caso contrario, imprime apenas uma referencia
+    textual para facilitar o entendimento do layout.
+
+    @type   User Function
+    @author Marinaldo de Jesus
+    @since  26/06/2026
+------------------------------------------------------------------------------------------
+*/
+
+#include "totvs.ch"
+#include "rptdef.ch"
+#include "fwprintsetup.ch"
+
+User Function TLDTEST01()
+
+    FWMsgRun(nil,{||RPCSetEnv("01","0101")},"Preparing environment...","Please wait")
+    __cInternet:=nil
+    FWMsgRun(nil,{||TLDTEST01()},"Printing ...","Please wait")
+    RPCClearEnv()
+
+return
+
+static function TLDTEST01()
+
+    local oPrint as object
+    local oDesign as object
+
+    local oFontTit:=TFont():New("Arial",nil,10,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    local oFontTxt:=TFont():New("Arial",nil,6,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    local oFontMin:=TFont():New("Arial",nil,4,nil,.T.,nil,nil,nil,.T.,.F.) as object
+
+    local lAdjustToLegacy:=.F. as logical
+    local lDisableSetup:=.F. as logical
+
+    local nAltRot:=130 as numeric
+    local nLarRot:=200 as numeric
+    local nAltImg:=TLDH02MM2PDF(nAltRot) as numeric
+    local nLarImg:=TLDH02MM2PDF(nLarRot) as numeric
+    local nTopImg:=10 as numeric
+    local nLeftImg:=5 as numeric
+
+    local cImagem:="\system\rotulos\imagem_ficticia_tlayoutdesigner.png" as character
+    local cPrinter:="tld_TEST01_"+DToS(Date())+"_"+StrTran(Time(),":","") as character
+
+    if (!FindClass("TLayoutDesigner"))
+        Alert("Classe TLayoutDesigner nao encontrada no RPO.")
+        return
+    endif
+
+    oPrint:=FWMSPrinter():New(cPrinter,IMP_PDF,lAdjustToLegacy,nil,lDisableSetup,nil,nil,nil)
+    oPrint:SetLandscape()
+    oPrint:SetPaperSize(0,nAltRot,nLarRot)
+
+    if (!Empty(oPrint:cPrinter))
+
+        oPrint:StartPage()
+
+        oDesign:=TLayoutDesigner():New(oPrint)
+        oDesign:SetScaleXY(nLarImg,nLarRot,nAltImg,nAltRot)
+        oDesign:SetOrigin(nTopImg,nLeftImg)
+        oDesign:SetColors(RGB(0,80,255),RGB(255,0,0),RGB(255,0,0),RGB(0,80,255))
+        oDesign:SetGridHighlight(.F.,RGB(255,255,255))
+        oDesign:SetGridSubdivisions(5,RGB(190,215,255))
+        oDesign:SetRulerTextStep(2)
+
+        if (File(cImagem))
+            oPrint:SayBitmap(nTopImg,nLeftImg,cImagem,nLarImg,nAltImg)
+        endif
+
+        oDesign:SetGridTextMode("NONE")
+        oDesign:GridMm(10,nAltImg,nLarImg)
+        oDesign:SetGridTextMode("STEPS")
+        oDesign:RulerMm(10,nAltImg,nLarImg)
+
+        oDesign:SetInfoMode("MM")
+        oDesign:ShowMarkInfo(.F.)
+        oDesign:Mark("AREA_ROTULO",0,0,nLarImg,nAltImg)
+        oDesign:MarkMm("CODIGO",103.00,165.00,32.00,5.00)
+        oDesign:MarkMm("LOTE",109.50,165.00,32.00,5.00)
+        oDesign:MarkMm("FABRICACAO",116.00,165.00,32.00,5.00)
+        oDesign:MarkMm("VALIDADE",122.50,165.00,32.00,5.00)
+        oDesign:MarkMm("PESO",128.00,165.00,32.00,5.00)
+        oDesign:MarkMm("VOLUME",108.75,139.50,18.00,8.00)
+        oDesign:MarkMm("ESPECIE",115.00,140.00,22.00,5.00)
+        oDesign:MarkMm("BARRAS",111.00,165.00,32.00,8.00)
+
+        if (!File(cImagem))
+            oPrint:Say(oDesign:MmToPrtY(6),oDesign:MmToPrtX(6),;
+                "Imagem ficticia: "+cImagem,oFontMin)
+            oPrint:Say(oDesign:MmToPrtY(12),oDesign:MmToPrtX(6),;
+                "Substitua este caminho por um PNG real para testar o SayBitmap().",oFontMin)
+        endif
+
+        oPrint:Say(oDesign:MmToPrtY(20),oDesign:MmToPrtX(15),;
+            "Exemplo TEST01 + TLayoutDesigner",oFontTit)
+
+        TLDH02SayPair(oPrint,oDesign,103.00,165.00,"Codigo prod.:","PA000001",oFontTxt,43)
+        TLDH02SayPair(oPrint,oDesign,109.50,165.00,"Lote:","LOTE-TESTE",oFontTxt,43)
+        TLDH02SayPair(oPrint,oDesign,116.00,165.00,"Fabricacao:","26/06/2026",oFontTxt,43)
+        TLDH02SayPair(oPrint,oDesign,122.50,165.00,"Validade:","26/06/2027",oFontTxt,43)
+        TLDH02SayPair(oPrint,oDesign,128.00,165.00,"Peso liquido:","25,000 kg",oFontTxt,43)
+
+        oPrint:Say(oDesign:MmToPrtY(108.75),oDesign:MmToPrtX(139.50),"20 L",oFontTit)
+        oPrint:Say(oDesign:MmToPrtY(115.00),oDesign:MmToPrtX(140.00),"BALDE",oFontTxt)
+        oPrint:Say(oDesign:MmToPrtY(111.00),oDesign:MmToPrtX(165.00),;
+            "[CODIGO DE BARRAS]",oFontTxt)
+
+        FreeObj(@oDesign)
+
+        oPrint:EndPage()
+        oPrint:Preview()
+    endif
+
+    FreeObj(@oPrint)
+    FreeObj(@oFontTit)
+    FreeObj(@oFontTxt)
+    FreeObj(@oFontMin)
+
+return
+
+static function TLDH02SayPair(oPrint,oDesign,nYmm,nXmm,cLabel,cValue,oFont,nValueOffsetMm)
+
+    DEFAULT nValueOffsetMm:=40
+
+    oPrint:Say(oDesign:MmToPrtY(nYmm),oDesign:MmToPrtX(nXmm),cLabel,oFont)
+    oPrint:Say(oDesign:MmToPrtY(nYmm),oDesign:MmToPrtX(nXmm+nValueOffsetMm),cValue,oFont)
+
+return
+
+static function TLDH02MM2PDF(nMM)
+
+    DEFAULT nMM:=0
+
+return(nMM*2.8)

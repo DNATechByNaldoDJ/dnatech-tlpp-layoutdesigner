@@ -1,0 +1,257 @@
+#include "totvs.ch"
+#include "rptdef.ch"
+#include "fwprintsetup.ch"
+
+#define TLD_CALIB_WMM       200
+#define TLD_CALIB_HMM       130
+#define TLD_CALIB_ORIG_ROW  0
+#define TLD_CALIB_ORIG_COL  0
+
+/*/{Protheus.doc} TLD_CALIB
+    Programa empirico de calibracao do TLayoutDesigner com FWMSPrinter.
+
+    Gera um PDF 200 x 130 mm em paginas separadas para medir no Inkscape:
+    - Say()
+    - SayAlign()
+    - Code128()
+    - EAN13()
+    - FWMsBar()
+
+    @type User Function
+    @author Marinaldo de Jesus
+    @since 27/06/2026
+/*/
+User Function TLD_CALIB()
+
+    FWMsgRun(nil,{||RPCSetEnv("01","0101")},"Preparing environment...","Please wait")
+    __cInternet:=nil
+    FWMsgRun(nil,{||TLD_CALIB()},"Printing ...","Please wait")
+    RPCClearEnv()
+
+return
+
+Static Function TLD_CALIB()
+
+    Local oPrint as object
+    Local cPrinter:="tld_calib_"+DToS(Date())+"_"+StrTran(Time(),":","") as character
+    Local cExport:="" as character
+
+    Local oFontGRn  :=TFont():New("Arial",nil,26,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    Local oFontMDn  :=TFont():New("Arial",nil,12,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    Local oFontPQn  :=TFont():New("Arial",nil,06,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    Local oFontMIn  :=TFont():New("Arial",nil,03,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    Local oFontPQn5 :=TFont():New("Arial",nil,06.5,nil,.T.,nil,nil,nil,.T.,.F.) as object
+    Local oFontMIn5 :=TFont():New("Arial",nil,04.5,nil,.T.,nil,nil,nil,.T.,.F.) as object
+
+    if (!FindClass("TLayoutDesigner"))
+        Alert("Classe TLayoutDesigner nao encontrada no RPO.")
+        return
+    endif
+
+    oPrint:=FWMSPrinter():New(cPrinter,IMP_PDF,.F.,nil,.F.,nil,nil,nil)
+    oPrint:SetLandscape()
+    oPrint:SetPaperSize(0,TLD_CALIB_HMM,TLD_CALIB_WMM)
+
+    if (!Empty(oPrint:cPrinter))
+
+        cExport+=TLDCalibSayPage(oPrint,oFontGRn,oFontMDn,oFontPQn,oFontMIn,oFontPQn5,oFontMIn5)
+        cExport+=TLDCalibBarPage(oPrint,oFontPQn,oFontMDn)
+        //TODO: Fix me: variable is not an object  on FWMSPRINTER:LINE(FWMSPRINTER.PRW) 16/01/2026 16:54:15 line : 1155
+        //cExport+=TLDCalibFWMsPage(oPrint,oFontPQn)
+
+        ConOut(cExport)
+        MemoWrite(cPrinter+".txt",cExport)
+
+        oPrint:Preview()
+
+    endif
+
+    FreeObj(@oPrint)
+    FreeObj(@oFontGRn)
+    FreeObj(@oFontMDn)
+    FreeObj(@oFontPQn)
+    FreeObj(@oFontMIn)
+    FreeObj(@oFontPQn5)
+    FreeObj(@oFontMIn5)
+
+return
+
+Static Function TLDCalibNewPage(oPrint,cTitle)
+
+    Local oDesign as object
+
+    oPrint:StartPage()
+
+    oDesign:=TLayoutDesigner():New(oPrint)
+    oDesign:SetPageMm(TLD_CALIB_WMM,TLD_CALIB_HMM,TLD_CALIB_ORIG_ROW,TLD_CALIB_ORIG_COL)
+    oDesign:SetColors(RGB(0,80,255),RGB(255,0,0),RGB(255,0,0),RGB(0,80,255))
+    oDesign:SetGridHighlight(.F.,RGB(255,255,255))
+    oDesign:SetGridSubdivisions(5,RGB(190,215,255))
+    oDesign:SetRulerTextStep(2)
+    oDesign:ShowMarkInfo(.F.)
+
+    oDesign:SetGridTextMode("NONE")
+    oDesign:GridMm(10,oDesign:MmToPdf(TLD_CALIB_HMM),oDesign:MmToPdf(TLD_CALIB_WMM))
+    oDesign:SetGridTextMode("STEPS")
+    oDesign:RulerMm(10,oDesign:MmToPdf(TLD_CALIB_HMM),oDesign:MmToPdf(TLD_CALIB_WMM))
+    oDesign:Mark("AREA_PAGINA",0,0,oDesign:MmToPdf(TLD_CALIB_WMM),oDesign:MmToPdf(TLD_CALIB_HMM))
+    oDesign:TextMm(cTitle,2,2)
+
+return(oDesign)
+
+Static Function TLDCalibClosePage(oPrint,oDesign)
+
+    Local cExport:="" as character
+
+    cExport:=oDesign:ExportText()
+    oDesign:Finalize()
+    FreeObj(@oDesign)
+    oPrint:EndPage()
+
+return(cExport)
+
+Static Function TLDCalibSayPage(oPrint,oFontGRn,oFontMDn,oFontPQn,oFontMIn,oFontPQn5,oFontMIn5)
+
+    Local oDesign as object
+
+    oDesign:=TLDCalibNewPage(oPrint,"TLD_CALIB PAG1 SAY SAYALIGN")
+
+    TLDCalibLegend(oDesign,"SAY Arial 26 Bold text=20",16,20)
+    oDesign:CalibSay("SAY_ARIAL_26_20","20",20,20,oFontGRn,26,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAY Arial 12 Bold text=LITROS",34,20)
+    oDesign:CalibSay("SAY_ARIAL_12_LITROS","LITROS",38,20,oFontMDn,12,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAY Arial 6 Bold text=Codigo prod.",50,20)
+    oDesign:CalibSay("SAY_ARIAL_06_LABEL","Codigo prod.:",54,20,oFontPQn,6,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAY Arial 6.5 Bold text=Peso liquido",50,100)
+    oDesign:CalibSay("SAY_ARIAL_065_LABEL","Peso liquido:",54,100,oFontPQn5,6.5,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAY Arial 4.5 Bold text=000777429",64,20)
+    oDesign:CalibSay("SAY_ARIAL_045_VALUE","000777429",68,20,oFontMIn5,4.5,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAYALIGN Arial 12 Bold box=60x10 align=2,2",78,20)
+    oDesign:CalibSayAlign("SAYALIGN_ARIAL_12_LITROS","LITROS",82,20,oFontMDn,60,10,2,2,12,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAYALIGN Arial 26 Bold box=60x18 align=2,2",96,20)
+    oDesign:CalibSayAlign("SAYALIGN_ARIAL_26_20","20",100,20,oFontGRn,60,18,2,2,26,"Arial",.T.)
+
+    TLDCalibLegend(oDesign,"SAY Arial 3 Bold text=20,5000 kg",118,20)
+    oDesign:CalibSay("SAY_ARIAL_03_PESO","20,5000 kg",122,20,oFontMIn,3,"Arial",.T.)
+
+return(TLDCalibClosePage(oPrint,oDesign))
+
+Static Function TLDCalibBarPage(oPrint,oFontPQn,oFontMDn)
+
+    Local oDesign as object
+
+    oDesign:=TLDCalibNewPage(oPrint,"TLD_CALIB PAG2 CODE128 EAN13")
+
+    TLDCalibLegend(oDesign,"CODE128 GTIN14 width=72 height=16",16,20)
+    TLDCalibCode128(oPrint,oDesign,"CODE128_72_16",20,20,"17898254732378",72,16,oFontPQn)
+
+    TLDCalibLegend(oDesign,"CODE128 GTIN14 width=85 height=25",43,20)
+    TLDCalibCode128(oPrint,oDesign,"CODE128_85_25",47,20,"17898254732378",85,25,oFontPQn)
+
+    TLDCalibLegend(oDesign,"EAN13 width=72 height=16",76,20)
+    TLDCalibEAN13(oPrint,oDesign,"EAN13_72_16",80,20,"7898254732378",72,16,oFontMDn)
+
+    TLDCalibLegend(oDesign,"EAN13 width=85 height=25",103,20)
+    TLDCalibEAN13(oPrint,oDesign,"EAN13_85_25",107,20,"7898254732378",85,25,oFontMDn)
+
+return(TLDCalibClosePage(oPrint,oDesign))
+
+Static Function TLDCalibFWMsPage(oPrint,oFontPQn)
+
+    Local oDesign as object
+
+    oDesign:=TLDCalibNewPage(oPrint,"TLD_CALIB PAG3 FWMSBAR EAN13")
+
+    TLDCalibLegend(oDesign,"FWMsBar EAN13 lHor=.T. lCmtr2Pix=.F.",16,20)
+    TLDCalibLegend(oDesign,"FWMsBar EAN13 lHor=.T. lCmtr2Pix=.T.",44,20)
+    TLDCalibLegend(oDesign,"FWMsBar EAN13 lHor=.T. lCmtr2Pix=nil",72,20)
+    TLDCalibLegend(oDesign,"FWMsBar EAN13 lHor=.F. lCmtr2Pix=.F.",100,20)
+
+    TLDCalibFWMsBar(oPrint,oDesign,"FWMS_EAN13_HOR_FALSE",20,20,"7898254732378",72,16,.T.,.F.,oFontPQn)
+    TLDCalibFWMsBar(oPrint,oDesign,"FWMS_EAN13_HOR_TRUE",48,20,"7898254732378",72,16,.T.,.T.,oFontPQn)
+    TLDCalibFWMsBar(oPrint,oDesign,"FWMS_EAN13_HOR_NIL",76,20,"7898254732378",72,16,.T.,nil,oFontPQn)
+    TLDCalibFWMsBar(oPrint,oDesign,"FWMS_EAN13_VERT_FALSE",104,20,"7898254732378",72,16,.F.,.F.,oFontPQn)
+
+return(TLDCalibClosePage(oPrint,oDesign))
+
+Static Function TLDCalibLegend(oDesign,cText,nYmm,nXmm)
+    oDesign:TextMm(cText,nYmm,nXmm)
+return(nil)
+
+Static Function TLDCalibRefBox(oDesign,cName,cMethod,nYmm,nXmm,nWidth,nHeight,cObs)
+
+    Local nRow:=oDesign:MmToPxY(nYmm) as numeric
+    Local nCol:=oDesign:MmToPxX(nXmm) as numeric
+
+    oDesign:CrossMm(cName+"_ORIG",nYmm,nXmm,3)
+    oDesign:DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,RGB(255,0,0))
+    oDesign:AddItem("CALIB",cName,nRow,nCol,nWidth,nHeight,cMethod,"",0,.F.,0,nYmm,nXmm,0,0,cObs)
+
+return(nil)
+
+Static Function TLDCalibCode128(oPrint,oDesign,cName,nYmm,nXmm,cCode,nTamBar,nAltBar,oFont)
+
+    Local nY:=oDesign:MmToPrtY(nYmm) as numeric
+    Local nX:=oDesign:MmToPrtX(nXmm) as numeric
+
+    TLDCalibRefBox(oDesign,cName,"CODE128",nYmm,nXmm,nTamBar,nAltBar,;
+        "code="+cCode+" width_arg="+AllTrim(Str(nTamBar))+" height_arg="+AllTrim(Str(nAltBar)))
+
+    oPrint:Code128(nY,nX,cCode,nTamBar,nAltBar,.F.,nil,nTamBar)
+    oPrint:Say(nY+nAltBar+4,nX,cCode,oFont)
+
+return(nil)
+
+Static Function TLDCalibEAN13(oPrint,oDesign,cName,nYmm,nXmm,cCode,nTamBar,nAltBar,oFont)
+
+    Local nY:=oDesign:MmToPrtY(nYmm) as numeric
+    Local nX:=oDesign:MmToPrtX(nXmm) as numeric
+
+    TLDCalibRefBox(oDesign,cName,"EAN13",nYmm,nXmm,nTamBar,nAltBar,;
+        "code="+cCode+" width_arg="+AllTrim(Str(nTamBar))+" height_arg="+AllTrim(Str(nAltBar)))
+
+    oPrint:EAN13(nY,nX,cCode,nTamBar,nAltBar)
+    oPrint:Say(nY+nAltBar+4,nX,cCode,oFont)
+
+return(nil)
+
+Static Function TLDCalibFWMsBar(oPrint,oDesign,cName,nYmm,nXmm,cCode,nTamBar,nAltBar,lHorBar,lCmtr2Pix,oFont)
+
+    Local nY:=oDesign:MmToPrtY(nYmm) as numeric
+    Local nX:=oDesign:MmToPrtX(nXmm) as numeric
+    Local cObs:="code="+cCode+" width_arg="+AllTrim(Str(nTamBar))+" height_arg="+AllTrim(Str(nAltBar)) as character
+
+    DEFAULT oFont:=nil
+
+    cObs+=" lHorBar="+if(lHorBar,".T.",".F.")
+    cObs+=" lCmtr2Pix="+TLDCalibLogValue(lCmtr2Pix)
+    if (ValType(oFont)=="O")
+        cObs+=" font_ref=ok"
+    endif
+
+    TLDCalibRefBox(oDesign,cName,"FWMSBAR",nYmm,nXmm,nTamBar,nAltBar,cObs)
+
+    // FWMsBar(cTypeBar,nRow,nCol,cCode,oPrint,lCheck,Color,lHorz,nWidth,nHeigth,lBanner,cFont,cMode,lPrint,nPFWidth,nPFHeigth,lCmtr2Pix)
+    oPrint:FWMsBar("EAN13",nY,nX,cCode,oPrint,.F.,nil,lHorBar,nTamBar,nAltBar,nil,"Arial",nil,.T.,nil,nil,lCmtr2Pix)
+
+return(nil)
+
+Static Function TLDCalibLogValue(xValue)
+
+    Local cValue:="nil" as character
+
+    if (ValType(xValue)=="L")
+        cValue:=if(xValue,".T.",".F.")
+    elseif (ValType(xValue)=="N")
+        cValue:=AllTrim(Str(xValue))
+    elseif (ValType(xValue)=="C")
+        cValue:=AllTrim(xValue)
+    endif
+
+return(cValue)
