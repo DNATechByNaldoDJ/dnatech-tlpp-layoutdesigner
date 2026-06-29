@@ -111,8 +111,8 @@ class TLayoutDesigner
     public method ResetOrigin() as object
     public method ApplyOrigin(nRow as numeric,nCol as numeric) as array
 
-    public method SetFont(xFont as variant,nSize as numeric,lBold as logical) as object
-    public method CloneFont(xFont as variant,nSize as numeric,lBold as logical) as object
+    public method SetFont(xFont as variant,nSize as numeric,lBold as logical,lItalic as logical,lUnderline as logical) as object
+    public method CloneFont(xFont as variant,nSize as numeric,lBold as logical,lItalic as logical,lUnderline as logical) as object
     public method SetColors(nGrid as numeric,nBox as numeric,nText as numeric,nPoint as numeric) as object
     public method SetGridHighlight(lShow as logical,nColorBack as numeric) as object
     public method SetGridSubdivisions(nSubDivisions as numeric,nColor as numeric) as object
@@ -122,6 +122,8 @@ class TLayoutDesigner
     public method SetInfoMode(cMode as character) as object
     public method SetRulerTextStep(nEvery as numeric) as object
     public method SetRulerTickSize(nSize as numeric) as object
+    public method IsLegacyFWMSPrinter() as logical
+    public method PrinterFont(xFont as variant,nSize as numeric,lBold as logical,lItalic as logical,lUnderline as logical) as variant
 
     public method MmToPx(nMM as numeric) as numeric
     public method PxToMm(nPx as numeric) as numeric
@@ -143,15 +145,15 @@ class TLayoutDesigner
     public method Ruler(nStep as numeric,nHeight as numeric,nWidth as numeric) as object
     public method RulerMm(nStepMM as numeric,nHeight as numeric,nWidth as numeric) as object
 
-    public method Mark(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as object
-    public method MarkMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric) as object
-    public method Box(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric) as object
-    public method BoxMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric) as object
+    public method Mark(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric,nColorBox as numeric,cPixel as character) as object
+    public method MarkMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric,nColorBox as numeric,cPixel as character) as object
+    public method Box(cName as character,nRow as numeric,nCol as numeric,nWidth as numeric,nHeight as numeric,nColorBox as numeric,cPixel as character) as object
+    public method BoxMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric,nColorBox as numeric,cPixel as character) as object
     public method BaselineMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric) as object
     public method CrossMm(cName as character,nYmm as numeric,nXmm as numeric,nSizeMm as numeric) as object
     public method CalibSay(cName as character,cText as character,nYmm as numeric,nXmm as numeric,oFont as object,nFontSize as numeric,cFont as character,lBold as logical) as object
-    public method CalibSayAlign(cName as character,cText as character,nYmm as numeric,nXmm as numeric,oFont as object,nWidthMm as numeric,nHeightMm as numeric,nHAlign as numeric,nVAlign as numeric,nFontSize as numeric,cFont as character,lBold as logical) as object
-    public method CalibBoxMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric) as object
+    public method CalibSayAlign(cName as character,cText as character,nYmm as numeric,nXmm as numeric,oFont as object,nWidthMm as numeric,nHeightMm as numeric,nHAlign as numeric,nVAlign as numeric,nFontSize as numeric,cFont as character,lBold as logical,nColorBox as numeric,cPixel as character) as object
+    public method CalibBoxMm(cName as character,nYmm as numeric,nXmm as numeric,nWmm as numeric,nHmm as numeric,nColorBox as numeric,cPixel as character) as object
 
     public method Point(cName as character,nRow as numeric,nCol as numeric) as object
     public method PointMm(cName as character,nYmm as numeric,nXmm as numeric) as object
@@ -165,8 +167,8 @@ class TLayoutDesigner
     public method ExportJson() as character
     public method ExportText() as character
 
-    public method DrawLine(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
-    public method DrawBox(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
+    public method DrawLine(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric,cPixel as character) as object
+    public method DrawBox(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColorBox as numeric,cPixel as character) as object
     public method DrawText(nRow as numeric,nCol as numeric,cText as character,oFont as object,nColor as numeric) as object
     public method DrawGuideLine(nRow1 as numeric,nCol1 as numeric,nRow2 as numeric,nCol2 as numeric,nColor as numeric) as object
     public method DrawGuideText(nRow as numeric,nCol as numeric,cText as character,oFont as object,nColor as numeric) as object
@@ -183,7 +185,7 @@ Endclass
 
 method New(oPrint,nPxPerMM) class TLayoutDesigner
 
-    paramtype 1 var oPrint as object class FWMSPRINTER,TREPORT
+    paramtype 1 var oPrint as object class FWMSPRINTER
     paramtype 2 var nPxPerMM as numeric optional default 1
 
     ::oPrint:=oPrint
@@ -219,7 +221,6 @@ method New(oPrint,nPxPerMM) class TLayoutDesigner
     ::aItems:=Array(0)
     ::aFonts:=Array(0)
 
-    //https://tdn.totvs.com/display/tec/TFont
     ::oFont:=::CloneFont("Arial",6,.T.)
 
 return(self)
@@ -273,13 +274,29 @@ return(self)
 
 method SetPageMm(nWidthMM,nHeightMM,nOriginRow,nOriginCol) class TLayoutDesigner
 
+    local nUnitX:=0 as numeric
+    local nUnitY:=0 as numeric
+
     paramtype 1 var nWidthMM as numeric optional default 200
     paramtype 2 var nHeightMM as numeric optional default 130
     paramtype 3 var nOriginRow as numeric optional default 0
     paramtype 4 var nOriginCol as numeric optional default 0
 
+    nUnitX:=nWidthMM*MM2PT
+    nUnitY:=nHeightMM*MM2PT
+
     ::SetOrigin(nOriginRow,nOriginCol)
-    ::SetScaleXY(nWidthMM*MM2PT,nWidthMM,nHeightMM*MM2PT,nHeightMM)
+
+    if (::IsLegacyFWMSPrinter())
+        if ((AttIsMemberOf(::oPrint,"nPageWidth")).and.(::oPrint:nPageWidth>0))
+            nUnitX:=::oPrint:nPageWidth
+        endif
+        if ((AttIsMemberOf(::oPrint,"nPageHeight")).and.(::oPrint:nPageHeight>0))
+            nUnitY:=::oPrint:nPageHeight
+        endif
+    endif
+
+    ::SetScaleXY(nUnitX,nWidthMM,nUnitY,nHeightMM)
 
 return(self)
 
@@ -321,67 +338,67 @@ method ApplyOrigin(nRow,nCol) class TLayoutDesigner
     paramtype 2 var nCol as numeric optional default 0
 return({nRow+::nOriginRow,nCol+::nOriginCol})
 
-method SetFont(xFont,nSize,lBold) class TLayoutDesigner
+method SetFont(xFont,nSize,lBold,lItalic,lUnderline) class TLayoutDesigner
 
     paramtype 1 var xFont as character,object optional default "Arial"
     paramtype 2 var nSize as numeric optional default 6
     paramtype 3 var lBold as logical optional default .T.
+    paramtype 3 var lItalic as logical optional default .F.
+    paramtype 4 var lUnderline as logical optional default .F.
 
-    ::oFont:=::CloneFont(xFont,nSize,lBold)
+    ::oFont:=::CloneFont(xFont,nSize,lBold,lItalic,lUnderline)
 
 return(self)
 
-method CloneFont(xFont,nSize,lBold) class TLayoutDesigner
+method CloneFont(xFont,nSize,lBold,lItalic,lUnderline) class TLayoutDesigner
 
     local cName:="Arial" as character
-    local nWidth:=nil
-    local nHeight:=6
-    local lFontBold:=.T. as logical
-    local lItalic:=.F. as logical
-    local lUnderline:=.F. as logical
+
+    local nWidth as numeric
+    local nHeight:=6 as numeric
+
     local oNewFont as object
 
     paramtype 1 var xFont as character,object optional default "Arial"
     paramtype 2 var nSize as numeric optional default 6
     paramtype 3 var lBold as logical optional default .T.
+    paramtype 4 var lItalic as logical optional default .F.
+    paramtype 5 var lUnderline as logical optional default .F.
 
     if (ValType(nSize)=="N" .and. nSize<>0)
         nHeight:=nSize
     endif
 
-    if (ValType(lBold)=="L")
-        lFontBold:=lBold
-    endif
-
     if (ValType(xFont)=="O")
-        // https://tdn.totvs.com/display/tec/TFont
-        if (ValType(xFont:Name)=="C" .and. !Empty(xFont:Name))
+        if ((AttIsMemberOf(xFont,"Name")).and.(!Empty(xFont:Name)))
             cName:=xFont:Name
         endif
-        if (ValType(xFont:nWidth)=="N")
+        if (AttIsMemberOf(xFont,"nWidth"))
             nWidth:=xFont:nWidth
         endif
-        if (ValType(xFont:nHeight)=="N" .and. xFont:nHeight<>0)
+        if ((AttIsMemberOf(xFont,"nHeight")).and.(xFont:nHeight<>0))
             nHeight:=xFont:nHeight
         endif
-        if (ValType(xFont:Bold)=="L")
-            lFontBold:=xFont:Bold
+        if (AttIsMemberOf(xFont,"Bold"))
+            lBold:=xFont:Bold
         endif
-        if (ValType(xFont:Italic)=="L")
+        if (AttIsMemberOf(xFont,"Italic"))
             lItalic:=xFont:Italic
         endif
-        if (ValType(xFont:Underline)=="L")
+        if (AttIsMemberOf(xFont,"Underline"))
             lUnderline:=xFont:Underline
         endif
-    elseif (ValType(xFont)=="C" .and. !Empty(xFont))
+    elseif ((ValType(xFont)=="C").and.(!Empty(xFont)))
         cName:=xFont
     endif
 
-    oNewFont:=TFont():New(cName,nWidth,nHeight,nil,lFontBold,nil,nil,nil,lUnderline,lItalic)
+    //https://tdn.totvs.com/display/tec/TFont
+    oNewFont:=TFont():New(cName,nWidth,nHeight,nil,lBold,nil,nil,nil,lUnderline,lItalic)
 
     if (ValType(::aFonts)!="A")
         ::aFonts:=Array(0)
     endif
+
     aAdd(::aFonts,oNewFont)
 
 return(oNewFont)
@@ -483,6 +500,50 @@ method SetRulerTickSize(nSize) class TLayoutDesigner
     endif
 
 return(self)
+
+method IsLegacyFWMSPrinter() class TLayoutDesigner
+return((ValType(::oPrint)=="O").and.(AttIsMemberOf(::oPrint,"nFactorHor")).and.(!AttIsMemberOf(::oPrint,"oFileWriter")))
+
+method PrinterFont(xFont,nSize,lBold,lItalic,lUnderline) class TLayoutDesigner
+
+    local cName:="Arial" as character
+    local nHeight:=6 as numeric
+
+    paramtype 1 var xFont as character,object optional default "Arial"
+    paramtype 2 var nSize as numeric optional default 6
+    paramtype 3 var lBold as logical optional default .T.
+    paramtype 4 var lItalic as logical optional default .F.
+    paramtype 5 var lUnderline as logical optional default .F.
+
+    if (ValType(nSize)=="N" .and. nSize<>0)
+        nHeight:=nSize
+    endif
+
+    if (ValType(xFont)=="O")
+        if ((AttIsMemberOf(xFont,"Name")).and.(!Empty(xFont:Name)))
+            cName:=xFont:Name
+        endif
+        if ((AttIsMemberOf(xFont,"nHeight")).and.(xFont:nHeight<>0))
+            nHeight:=xFont:nHeight
+        endif
+        if (AttIsMemberOf(xFont,"Bold"))
+            lBold:=xFont:Bold
+        endif
+        if (AttIsMemberOf(xFont,"Italic"))
+            lItalic:=xFont:Italic
+        endif
+        if (AttIsMemberOf(xFont,"Underline"))
+            lUnderline:=xFont:Underline
+        endif
+    elseif ((ValType(xFont)=="C").and.(!Empty(xFont)))
+        cName:=xFont
+    endif
+
+    if (::IsLegacyFWMSPrinter())
+        return({cName,nHeight,lItalic,lBold,lUnderline})
+    endif
+
+return(::CloneFont(cName,nHeight,lBold,lItalic,lUnderline))
 
 method MmToPx(nMM) class TLayoutDesigner
     paramtype 1 var nMM as numeric optional default 0
@@ -887,7 +948,7 @@ method RulerMm(nStepMM,nHeight,nWidth) class TLayoutDesigner
 
 return(self)
 
-method Mark(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+method Mark(cName,nRow,nCol,nWidth,nHeight,nColorBox,cPixel) class TLayoutDesigner
 
     local aInfo as array
 
@@ -898,8 +959,10 @@ method Mark(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
     paramtype 3 var nCol as numeric optional default 0
     paramtype 4 var nWidth as numeric optional default 40
     paramtype 5 var nHeight as numeric optional default 10
+    paramtype 6 var nColorBox as numeric optional default ::nColorBox
+    paramtype 7 var cPixel as character optional
 
-    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,::nColorBox)
+    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,nColorBox,cPixel)
     ::AddItem("MARK",cName,nRow,nCol,nWidth,nHeight)
 
     if (::lShowMarkInfo)
@@ -916,34 +979,40 @@ method Mark(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
 
 return(self)
 
-method MarkMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
+method MarkMm(cName,nYmm,nXmm,nWmm,nHmm,nColorBox,cPixel) class TLayoutDesigner
     paramtype 1 var cName as character optional default "AREA"
     paramtype 2 var nYmm as numeric optional default 0
     paramtype 3 var nXmm as numeric optional default 0
     paramtype 4 var nWmm as numeric optional default 40
     paramtype 5 var nHmm as numeric optional default 10
-return(::Mark(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm)))
+    paramtype 6 var nColorBox as numeric optional
+    paramtype 7 var cPixel as character optional
+return(::Mark(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm),nColorBox,cPixel))
 
-method Box(cName,nRow,nCol,nWidth,nHeight) class TLayoutDesigner
+method Box(cName,nRow,nCol,nWidth,nHeight,nColorBox,cPixel) class TLayoutDesigner
 
     paramtype 1 var cName as character optional default "BOX"
     paramtype 2 var nRow as numeric optional default 0
     paramtype 3 var nCol as numeric optional default 0
     paramtype 4 var nWidth as numeric optional default 40
     paramtype 5 var nHeight as numeric optional default 10
+    paramtype 6 var nColorBox as numeric optional default ::nColorBox
+    paramtype 7 var cPixel as character optional
 
-    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,::nColorBox)
+    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,nColorBox,cPixel)
     ::AddItem("BOX",cName,nRow,nCol,nWidth,nHeight)
 
 return(self)
 
-method BoxMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
+method BoxMm(cName,nYmm,nXmm,nWmm,nHmm,nColorBox,cPixel) class TLayoutDesigner
     paramtype 1 var cName as character optional default "BOX"
     paramtype 2 var nYmm as numeric optional default 0
     paramtype 3 var nXmm as numeric optional default 0
     paramtype 4 var nWmm as numeric optional default 40
     paramtype 5 var nHmm as numeric optional default 10
-return(::Box(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm)))
+    paramtype 6 var nColorBox as numeric optional
+    paramtype 7 var cPixel as character optional
+return(::Box(cName,::MmToPxY(nYmm),::MmToPxX(nXmm),::MmToPxX(nWmm),::MmToPxY(nHmm),nColorBox,cPixel))
 
 method BaselineMm(cName,nYmm,nXmm,nWmm) class TLayoutDesigner
 
@@ -992,7 +1061,7 @@ method CalibSay(cName,cText,nYmm,nXmm,oFont,nFontSize,cFont,lBold) class TLayout
 
     local nRow:=0 as numeric
     local nCol:=0 as numeric
-    local oSayFont as object
+    local xSayFont as variant
 
     paramtype 1 var cName as character optional default "CALIB_SAY"
     paramtype 2 var cText as character optional default ""
@@ -1010,22 +1079,30 @@ method CalibSay(cName,cText,nYmm,nXmm,oFont,nFontSize,cFont,lBold) class TLayout
     ::CrossMm(cName+"_ORIG",nYmm,nXmm,3)
 
     if (ValType(::oPrint)=="O")
-        oSayFont:=::CloneFont(oFont,nFontSize,lBold)
-        ::oPrint:Say(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,oSayFont)
-        FreeObj(@oSayFont)
+        xSayFont:=::PrinterFont(oFont,nFontSize,lBold)
+        if (::IsLegacyFWMSPrinter())
+            ::oPrint:Say(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,xSayFont,0,::nColorText)
+        else
+            ::oPrint:Say(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,xSayFont)
+        endif
+        if (ValType(xSayFont)=="O")
+            FreeObj(@xSayFont)
+        elseif (ValType(xSayFont)=="A")
+            FWFreeArray(@xSayFont)
+        endif
     endif
 
     ::AddItem("CALIB",cName,nRow,nCol,0,0,"SAY",cFont,nFontSize,lBold,0,nYmm,nXmm,0,0,cText)
 
 return(self)
 
-method CalibSayAlign(cName,cText,nYmm,nXmm,oFont,nWidthMm,nHeightMm,nHAlign,nVAlign,nFontSize,cFont,lBold) class TLayoutDesigner
+method CalibSayAlign(cName,cText,nYmm,nXmm,oFont,nWidthMm,nHeightMm,nHAlign,nVAlign,nFontSize,cFont,lBold,nColorBox,cPixel) class TLayoutDesigner
 
     local nRow:=0 as numeric
     local nCol:=0 as numeric
     local nWidth:=0 as numeric
     local nHeight:=0 as numeric
-    local oSayFont as object
+    local xSayFont as variant
 
     paramtype 1 var cName as character optional default "CALIB_SAYALIGN"
     paramtype 2 var cText as character optional default ""
@@ -1039,25 +1116,35 @@ method CalibSayAlign(cName,cText,nYmm,nXmm,oFont,nWidthMm,nHeightMm,nHAlign,nVAl
     paramtype 10 var nFontSize as numeric optional default 0
     paramtype 11 var cFont as character optional default ""
     paramtype 12 var lBold as logical optional default .T.
+    paramtype 13 var nColorBox as numeric optional
+    paramtype 14 var cPixel as character optional
 
     nRow:=::MmToPxY(nYmm)
     nCol:=::MmToPxX(nXmm)
     nWidth:=::MmToPxX(nWidthMm)
     nHeight:=::MmToPxY(nHeightMm)
 
-    ::CalibBoxMm(cName+"_BOX",nYmm,nXmm,nWidthMm,nHeightMm)
+    ::CalibBoxMm(cName+"_BOX",nYmm,nXmm,nWidthMm,nHeightMm,nColorBox,cPixel)
 
     if (ValType(::oPrint)=="O")
-        oSayFont:=::CloneFont(oFont,nFontSize,lBold)
-        ::oPrint:SayAlign(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,oSayFont,nWidth,nHeight,nil,nHAlign,nVAlign)
-        FreeObj(@oSayFont)
+        xSayFont:=::PrinterFont(oFont,nFontSize,lBold)
+        if (::IsLegacyFWMSPrinter())
+            ::oPrint:Say(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,xSayFont,0,::nColorText)
+        else
+            ::oPrint:SayAlign(::MmToPrtY(nYmm),::MmToPrtX(nXmm),cText,xSayFont,nWidth,nHeight,nil,nHAlign,nVAlign)
+        endif
+        if (ValType(xSayFont)=="O")
+            FreeObj(@xSayFont)
+        elseif (ValType(xSayFont)=="A")
+            FWFreeArray(@xSayFont)
+        endif
     endif
 
     ::AddItem("CALIB",cName,nRow,nCol,nWidth,nHeight,"SAYALIGN",cFont,nFontSize,lBold,0,nYmm,nXmm,nWidthMm,nHeightMm,cText)
 
 return(self)
 
-method CalibBoxMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
+method CalibBoxMm(cName,nYmm,nXmm,nWmm,nHmm,nColorBox,cPixel) class TLayoutDesigner
 
     local nRow:=0 as numeric
     local nCol:=0 as numeric
@@ -1069,13 +1156,15 @@ method CalibBoxMm(cName,nYmm,nXmm,nWmm,nHmm) class TLayoutDesigner
     paramtype 3 var nXmm as numeric optional default 0
     paramtype 4 var nWmm as numeric optional default 40
     paramtype 5 var nHmm as numeric optional default 10
+    paramtype 6 var nColorBox as numeric optional default ::nColorBox
+    paramtype 7 var cPixel as character optional
 
     nRow:=::MmToPxY(nYmm)
     nCol:=::MmToPxX(nXmm)
     nWidth:=::MmToPxX(nWmm)
     nHeight:=::MmToPxY(nHmm)
 
-    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,::nColorBox)
+    ::DrawBox(nRow,nCol,nRow+nHeight,nCol+nWidth,nColorBox,cPixel)
     ::AddItem("CALIBBOX",cName,nRow,nCol,nWidth,nHeight,"BOX","",0,.F.,0,nYmm,nXmm,nWmm,nHmm,"")
 
 return(self)
@@ -1345,7 +1434,7 @@ method ExportText() class TLayoutDesigner
 
 return(cOut)
 
-method DrawLine(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
+method DrawLine(nRow1,nCol1,nRow2,nCol2,nColor,cPixel) class TLayoutDesigner
 
     local aIni as array
     local aFim as array
@@ -1355,36 +1444,43 @@ method DrawLine(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
     paramtype 3 var nRow2 as numeric optional default 0
     paramtype 4 var nCol2 as numeric optional default 0
     paramtype 5 var nColor as numeric optional default ::nColorBox
+    paramtype 6 var cPixel as character optional
 
     if (ValType(::oPrint)=="O")
         aIni:=::ApplyOrigin(nRow1,nCol1)
         aFim:=::ApplyOrigin(nRow2,nCol2)
-        ::oPrint:Line(aIni[1],aIni[2],aFim[1],aFim[2],nColor)
+        //FWMsPrinter():Line(<nTop>,<nLeft>,<nBottom>,<nRight>,[nColor],[cPixel])
+        if (::IsLegacyFWMSPrinter())
+            ::oPrint:Line(aIni[1],aIni[2],aFim[1],aFim[2])
+        else
+            ::oPrint:Line(aIni[1],aIni[2],aFim[1],aFim[2],nColor,cPixel)
+        endif
         FWFreeArray(@aIni)
         FWFreeArray(@aFim)
     endif
 
 return(self)
 
-method DrawBox(nRow1,nCol1,nRow2,nCol2,nColor) class TLayoutDesigner
+method DrawBox(nRow1,nCol1,nRow2,nCol2,nColorBox,cPixel) class TLayoutDesigner
 
     paramtype 1 var nRow1 as numeric optional default 0
     paramtype 2 var nCol1 as numeric optional default 0
     paramtype 3 var nRow2 as numeric optional default 0
     paramtype 4 var nCol2 as numeric optional default 0
-    paramtype 5 var nColor as numeric optional default ::nColorBox
+    paramtype 5 var nColorBox as numeric optional default ::nColorBox
+    paramtype 6 var cPixel as character optional
 
-    ::DrawLine(nRow1,nCol1,nRow1,nCol2,nColor)
-    ::DrawLine(nRow1,nCol2,nRow2,nCol2,nColor)
-    ::DrawLine(nRow2,nCol2,nRow2,nCol1,nColor)
-    ::DrawLine(nRow2,nCol1,nRow1,nCol1,nColor)
+    ::DrawLine(nRow1,nCol2,nRow2,nCol2,nColorBox,cPixel)
+    ::DrawLine(nRow2,nCol2,nRow2,nCol1,nColorBox,cPixel)
+    ::DrawLine(nRow2,nCol1,nRow1,nCol1,nColorBox,cPixel)
+    ::DrawLine(nRow1,nCol1,nRow1,nCol2,nColorBox,cPixel)
 
 return(self)
 
 method DrawText(nRow,nCol,cText,oFont,nColor) class TLayoutDesigner
 
     local aPos as array
-    local oSayFont as object
+    local xSayFont as variant
 
     paramtype 1 var nRow as numeric optional default 0
     paramtype 2 var nCol as numeric optional default 0
@@ -1393,16 +1489,18 @@ method DrawText(nRow,nCol,cText,oFont,nColor) class TLayoutDesigner
     paramtype 5 var nColor as numeric optional default ::nColorText
 
     if (ValType(::oPrint)=="O")
-        if (ValType(oFont)=="O")
-            oSayFont:=::CloneFont(oFont,6,.T.)
-        else
-            if (ValType(::oFont)!="O")
-                oSayFont:=::CloneFont("Arial",6,.T.)
-            endif
-        endif
+        xSayFont:=::PrinterFont(oFont,6,.T.)
         aPos:=::ApplyOrigin(nRow,nCol)
-        ::oPrint:Say(aPos[1],aPos[2],cText,oSayFont,nil,nColor)
-        FreeObj(@oSayFont)
+        if (::IsLegacyFWMSPrinter())
+            ::oPrint:Say(aPos[1],aPos[2],cText,xSayFont,0,nColor)
+        else
+            ::oPrint:Say(aPos[1],aPos[2],cText,xSayFont,nil,nColor)
+        endif
+        if (ValType(xSayFont)=="O")
+            FreeObj(@xSayFont)
+        elseif (ValType(xSayFont)=="A")
+            FWFreeArray(@xSayFont)
+        endif
         FWFreeArray(@aPos)
     endif
 
@@ -1445,7 +1543,6 @@ method DrawMmCornerText(nHeight,nWidth,nColor) class TLayoutDesigner
     local cText:="" as character
     local nRow:=0 as numeric
     local nCol:=0 as numeric
-    local nTextWidth:=0 as numeric
 
     paramtype 1 var nHeight as numeric optional default 0
     paramtype 2 var nWidth as numeric optional default 0
@@ -1459,21 +1556,12 @@ method DrawMmCornerText(nHeight,nWidth,nColor) class TLayoutDesigner
     ::DrawGuideText(nRow,::nTextOffset,"mm (0,0)",::oFont,nColor)
 
     cText:=::FmtNum(::PxToMmXRaw(nWidth))
-    nTextWidth:=Len(cText)*6
-    nCol:=nWidth-nTextWidth
-
-    if (nCol<::nTextOffset)
-        nCol:=::nTextOffset
-    endif
+    nCol:=nWidth+::nTextOffset
 
     ::DrawGuideText(nRow,nCol,cText,::oFont,nColor)
 
     cText:=::FmtNum(::PxToMmYRaw(nHeight))
-    nRow:=nHeight-::nTextLineHeight
-
-    if (nRow<0)
-        nRow:=0
-    endif
+    nRow:=nHeight+::nTextOffset
 
     ::DrawGuideText(nRow,::nTextOffset,cText,::oFont,nColor)
 

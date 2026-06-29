@@ -33,6 +33,7 @@ static function TLDTEST01()
     local oPrint as object
     local oDesign as object
 
+    //https://tdn.totvs.com/display/tec/TFont
     local oFontTit:=TFont():New("Arial",nil,10,nil,.T.,nil,nil,nil,.T.,.F.) as object
     local oFontTxt:=TFont():New("Arial",nil,6,nil,.T.,nil,nil,nil,.T.,.F.) as object
     local oFontMin:=TFont():New("Arial",nil,4,nil,.T.,nil,nil,nil,.T.,.F.) as object
