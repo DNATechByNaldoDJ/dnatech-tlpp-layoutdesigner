@@ -181,6 +181,9 @@ class TLayoutDesigner
 
     public method Finalize() as object
 
+    static method Pixel2MM(nPixel as numeric,nDPI as numeric,nMMPerInch as numeric) as numeric
+    static method MM2Pixel(nMM as numeric,nDPI as numeric,nMMPerInch as numeric) as numeric
+
 Endclass
 
 method New(oPrint,nPxPerMM) class TLayoutDesigner
@@ -1639,3 +1642,15 @@ method Finalize() class TLayoutDesigner
     ::oPrint:=nil
     FreeObj(@::oFont)
 return(self)
+
+static method Pixel2MM(nPixel,nDPI,nMMPerInch) class TLayoutDesigner
+    paramtype 1 var nPixel as numeric optional default 1
+    paramtype 2 var nDPI as numeric optional default 300
+    paramtype 3 var nMMPerInch as numeric optional default 25.4
+return(nPixel*(nMMPerInch/nDPI))
+
+static method MM2Pixel(nMM,nDPI,nMMPerInch) class TLayoutDesigner
+    paramtype 1 var nMM  as numeric optional default 1
+    paramtype 2 var nDPI as numeric optional default 300
+    paramtype 3 var nMMPerInch as numeric optional default 25.4
+return Round((nMM/nMMPerInch)*nDPI,0)
