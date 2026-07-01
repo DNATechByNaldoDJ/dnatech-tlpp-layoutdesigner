@@ -35,10 +35,10 @@ A rotina tambem acumula as marcacoes com `ExportText()`, escreve um arquivo `.tx
 ## Como calibrar
 
 1. Compile `src/core/tlayoutdesigner.tlpp` junto com as rotinas desta pasta.
-2. Execute `U_TLD_CALIB`.
+2. Execute `TLD_CALIB`.
 3. Abra o PDF gerado e meca pagina, grade, textos e barras em uma ferramenta de medicao.
 4. Compare as medidas observadas com o `.txt` exportado.
 5. Ajuste escala, origem ou parametros de impressao ate que as medidas reais coincidam com as coordenadas esperadas.
-6. Use `U_TLDTEST01` para validar o comportamento em um layout mais proximo do uso final.
+6. Use `TLDTEST01` para validar o comportamento em um layout mais proximo do uso final.
 
 A calibracao deve ser repetida quando mudar o driver, a versao/runtime do Protheus, a forma de geracao do PDF ou qualquer parametro que altere a unidade interna do `FWMSPrinter`.
