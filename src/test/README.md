@@ -23,7 +23,7 @@ O exemplo tambem mostra o padrao pretendido para o uso da classe:
 - `Code128()` e `EAN13()`;
 - `FWMsBar()` com variacoes de orientacao e `lCmtr2Pix`.
 
-Cada pagina cria a mesma base visual: grade em milimetros, regua, area de pagina e marcas de referencia. Os metodos de calibracao desenham caixas, cruzes de origem e baselines para que o resultado possa ser medido em uma ferramenta externa, como Inkscape.
+Cada pagina cria a mesma base visual: grade em milimetros, regua, area de pagina e marcas de referencia. Os metodos de calibracao desenham caixas, cruzes de origem e baselines para que o resultado possa ser medido em uma ferramenta externa, como [Inkscape](https://inkscape.org/pt-br/).
 
 A rotina tambem acumula as marcacoes com `ExportText()`, escreve um arquivo `.txt` com as coordenadas e exibe o conteudo via `EEcView()`. Esse arquivo serve como trilha de conferencia entre:
 
