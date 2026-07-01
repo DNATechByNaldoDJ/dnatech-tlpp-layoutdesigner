@@ -25,7 +25,7 @@ O exemplo tambem mostra o padrao pretendido para o uso da classe:
 
 Cada pagina cria a mesma base visual: grade em milimetros, regua, area de pagina e marcas de referencia. Os metodos de calibracao desenham caixas, cruzes de origem e baselines para que o resultado possa ser medido em uma ferramenta externa, como [Inkscape](https://inkscape.org/pt-br/).
 
-A rotina tambem acumula as marcacoes com `ExportText()`, escreve um arquivo `.txt` com as coordenadas e exibe o conteudo via `EEcView()`. Esse arquivo serve como trilha de conferencia entre:
+A rotina tambem acumula as marcacoes com `ExportText()`, escreve um arquivo `.txt` com as coordenadas e exibe o conteudo via `EEcView()`(por comodidade). Esse arquivo serve como trilha de conferencia entre:
 
 - coordenadas informadas em milimetros;
 - coordenadas convertidas para o printer;
@@ -35,10 +35,10 @@ A rotina tambem acumula as marcacoes com `ExportText()`, escreve um arquivo `.tx
 ## Como calibrar
 
 1. Compile `src/core/tlayoutdesigner.tlpp` junto com as rotinas desta pasta.
-2. Execute `TLD_CALIB`.
+2. Execute `U_TLD_CALIB`.
 3. Abra o PDF gerado e meca pagina, grade, textos e barras em uma ferramenta de medicao.
 4. Compare as medidas observadas com o `.txt` exportado.
 5. Ajuste escala, origem ou parametros de impressao ate que as medidas reais coincidam com as coordenadas esperadas.
-6. Use `TLDTEST01` para validar o comportamento em um layout mais proximo do uso final.
+6. Use `U_TLDTEST01` para validar o comportamento em um layout mais proximo do uso final.
 
 A calibracao deve ser repetida quando mudar o driver, a versao/runtime do Protheus, a forma de geracao do PDF ou qualquer parametro que altere a unidade interna do `FWMSPrinter`.
