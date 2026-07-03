@@ -7,7 +7,7 @@
 #define TLD_CALIB_ORIG_ROW  0
 #define TLD_CALIB_ORIG_COL  0
 
-/*/{Protheus.doc} TLD_CALIB
+/*{Protheus.doc} TLD_CALIB
     Programa empirico de calibracao do TLayoutDesigner com FWMSPrinter.
 
     Gera um PDF 200 x 130 mm em paginas separadas para medir no Inkscape:
@@ -20,7 +20,7 @@
     @type User Function
     @author Marinaldo de Jesus
     @since 27/06/2026
-/*/
+*/
 User Function TLD_CALIB()
 
     FWMsgRun(nil,{||RPCSetEnv("01","0101")},"Preparing environment...","Please wait")
@@ -256,7 +256,7 @@ Static Function TLDCalibFWMsBar(oFWMSPrinter,oDesign,cName,nYmm,nXmm,cTypeBar,cC
     TLDCalibRefBox(oDesign,cName,"FWMSBAR",nYmm,nXmm,nTamBar,nAltBar,cObs)
 
     // FWMsBar(cTypeBar,nRow,nCol,cCode,oPrint,lCheck,Color,lHorz,nWidth,nHeigth,lBanner,cFont,cMode,lPrint,nPFWidth,nPFHeigth,lCmtr2Pix)
-    // Se passar oFWMSPrinter no lugar de oFWMSPrinter:oPrint oFWMSPrinter:oFileWriter retornar· como "nil" gerando erros nos prÛximos passos da impress„o
+    // Se passar oFWMSPrinter no lugar de oFWMSPrinter:oPrint oFWMSPrinter:oFileWriter retornar√° como "nil" gerando erros nos pr√≥ximos passos da impress√£o
     //FWMsPrinter():FWMsBar(cTypeBar,nRow,nCol,cCode,oPrint,lCheck,Color,lHorz, nWidth,nHeigth,lBanner,cFont,cMode,lPrint,nPFWidth,nPFHeigth,lCmtr2Pix)
     oFWMSPrinter:FWMsBar(cTypeBar,nY,nX,cCode,oFWMSPrinter:oPrint,.F.,nil,lHorBar,nTamBar,nAltBar,nil,"Arial",nil,.T.,nil,nil,lCmtr2Pix)
 
